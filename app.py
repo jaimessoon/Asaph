@@ -3,51 +3,51 @@ from streamlit_gsheets import GSheetsConnection
 import requests
 from bs4 import BeautifulSoup
 import json
-import pandas as pd
 
-# --- CONFIG ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1e7hBwOYzO2VX9N1XUy2LgTP4gJWC05D5Fty6Gl79kT8/edit?usp=sharing"
+# --- 1. LOGIN CHECK ---
+if not st.user.is_logged_in:
+    st.title("Welcome to JARVIS")
+    st.button("Log in with Google", on_click=st.login)
+    st.stop()
 
-st.title("ASAPH | Song Gatherer")
+st.title(f"JARVIS | {st.user.name}'s Songbook")
+if st.button("Logout"): st.logout()
 
-# --- 1. THE SCRAPER ---
-def scrape_ug(url):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    data_div = soup.find('div', class_='js-store')
-    data_content = json.loads(data_div['data-config'])
-    raw_content = data_content['store']['page']['data']['tab_view']['wiki_tab']['content']
-    # Convert [ch] to ChordPro [G]
-    return raw_content.replace('[ch]', '[').replace('[/ch]', ']')
-
-# --- 2. THE UI ---
+# --- 2. SOURCE MANAGER ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-with st.expander("Add New Song"):
-    new_title = st.text_input("Song Title")
-    ug_url = st.text_input("Ultimate Guitar URL")
-    
-    if st.button("Gather & Save"):
-        song_body = scrape_ug(ug_url)
-        
-        # Load existing data
-        existing_data = conn.read(spreadsheet=SHEET_URL)
-        
-        # Create new row
-        new_row = pd.DataFrame([{
-            "Song_Title": new_title,
-            "ChordPro_Body": song_body,
-            "Source_URL": ug_url
-        }])
-        
-        # Append and Update
-        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
-        conn.update(spreadsheet=SHEET_URL, data=updated_df)
-        st.success(f"Added {new_title} to Asaph!")
+# Default Source
+primary_source = "ultimate-guitar.com" 
 
-# --- 3. THE LIBRARY ---
-st.divider()
-df = conn.read(spreadsheet=SHEET_URL)
-if not df.empty:
-    st.dataframe(df[['Song_Title', 'Source_URL']])
+with st.sidebar:
+    st.subheader("Source Settings")
+    new_source = st.text_input("Add New Source (URL)")
+    if st.button("Add Source"):
+        # Logic to save new_source to your Google Sheet 'Sources' tab
+        st.success("Source Added!")
+
+# --- 3. SEARCH & SELECT ---
+st.subheader("Gather New Song")
+search_query = st.text_input("Search Song or Artist", placeholder="e.g. Hotel California")
+
+if search_query:
+    st.info(f"Searching {primary_source}...")
+    
+    # 3a. Search Logic (Simplified Example)
+    # JARVIS goes to UG search results and finds top 5 links
+    search_url = f"https://www.ultimate-guitar.com/search.php?title={search_query.replace(' ', '%20')}"
+    
+    # In a real scraper, we extract titles and links here
+    # For now, let's simulate the results:
+    results = {
+        "Hotel California (Chords)": "https://tabs.ultimate-guitar.com/tab/eagles/hotel-california-chords-463",
+        "Hotel California (Official)": "https://tabs.ultimate-guitar.com/tab/eagles/hotel-california-official-1912533"
+    }
+    
+    selected_name = st.selectbox("Select the correct version:", list(results.keys()))
+    
+    if st.button("Confirm & Gather"):
+        target_url = results[selected_name]
+        # Run the scraper logic we built earlier
+        # save_to_sheet(target_url)
+        st.success(f"Saved {selected_name} to your library!")
