@@ -6,7 +6,7 @@ import json
 import pandas as pd
 
 # --- CONFIG ---
-SHEET_URL = "PASTE_YOUR_FULL_GOOGLE_SHEET_URL_HERE"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1e7hBwOYzO2VX9N1XUy2LgTP4gJWC05D5Fty6Gl79kT8/edit?usp=sharing"
 
 st.title("ASAPH | Song Gatherer")
 
