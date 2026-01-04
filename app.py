@@ -23,8 +23,9 @@ with tab1:
     
     # SETUP YOUR PRE-FILLED URL
     # Replace the ID below and the entry ID with your own (See instructions below)
-    form_base_url = "https://docs.google.com/forms/d/e/YOUR_FORM_ID/viewform"
-    email_entry_id = "entry.123456789" # This is the ID for the Email field
+    form_base_url = "https://docs.google.com/forms/d/e/1FAIpQLSeQmjX55S-IoaCd6SggrxhO8-Rt-FNka09WpF6GMwtGWnRaEg/viewform"
+    #https://docs.google.com/forms/d/e/1FAIpQLSeQmjX55S-IoaCd6SggrxhO8-Rt-FNka09WpF6GMwtGWnRaEg/viewform?usp=pp_url&entry.1476515849=Test
+    email_entry_id = "entry.1476515849" # This is the ID for the Email field
     
     # This automatically injects the logged-in user's email into the form
     prefilled_url = f"{form_base_url}?{email_entry_id}={st.user.email}&embedded=true"
