@@ -23,22 +23,44 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 3. SCRAPER ENGINE ---
 def search_ug(query):
+    """Hardened search function to bypass UG's scraper detection."""
+    # We use a real browser's identity (User-Agent) to avoid being blocked
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    
+    # URL encoded query
     search_url = f"https://www.ultimate-guitar.com/search.php?title={query.replace(' ', '%20')}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    
     try:
-        res = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.content, 'html.parser')
-        data_div = soup.find('div', class_='js-store')
-        data_content = json.loads(data_div['data-config'])
-        results = data_content['store']['page']['data']['results']
+        response = requests.get(search_url, headers=headers, timeout=15)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # UG hides its search data in a JSON object inside this specific div
+        store_div = soup.find('div', class_='js-store')
+        if not store_div:
+            return {}
+            
+        # Parse the JSON 'data-config' attribute
+        raw_data = store_div.get('data-config')
+        data = json.loads(raw_data)
+        
+        # Navigate the JSON tree to find results
+        # Path: store -> page -> data -> results
+        results = data.get('store', {}).get('page', {}).get('data', {}).get('results', [])
         
         search_options = {}
         for item in results:
-            if 'tab_url' in item and 'song_name' in item:
-                label = f"{item['song_name']} - {item['artist_name']} ({item.get('type', 'Tab')})"
+            # We filter for 'Chords' (Type 200) to ensure they are readable text
+            # and exclude 'Official' or 'Pro' tabs that aren't scrapable
+            if item.get('type') == 'Chords' and 'tab_url' in item:
+                label = f"{item['song_name']} - {item['artist_name']} ({item['type']})"
                 search_options[label] = item['tab_url']
+                
         return search_options
-    except Exception:
+    except Exception as e:
+        st.error(f"Scraper Error: {e}")
         return {}
 
 def scrape_ug_details(url):
