@@ -23,44 +23,52 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 3. SCRAPER ENGINE ---
 def search_ug(query):
-    """Hardened search function to bypass UG's scraper detection."""
-    # We use a real browser's identity (User-Agent) to avoid being blocked
+    # Enhanced headers to mimic a modern browser session
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
     }
     
-    # URL encoded query
     search_url = f"https://www.ultimate-guitar.com/search.php?title={query.replace(' ', '%20')}"
     
     try:
-        response = requests.get(search_url, headers=headers, timeout=15)
+        # We add a 'cookies' session to look more legitimate
+        session = requests.Session()
+        response = session.get(search_url, headers=headers, timeout=15)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # UG hides its search data in a JSON object inside this specific div
-        store_div = soup.find('div', class_='js-store')
-        if not store_div:
+        # 1. SAFETY CATCH: Check if we are blocked
+        data_div = soup.find('div', class_='js-store')
+        
+        if not data_div:
+            # If we are here, UG blocked the IP or changed the layout
+            st.warning("⚠️ Ultimate-Guitar is currently limiting access. Try again in a few minutes or add a new Source.")
             return {}
             
-        # Parse the JSON 'data-config' attribute
-        raw_data = store_div.get('data-config')
-        data = json.loads(raw_data)
-        
-        # Navigate the JSON tree to find results
-        # Path: store -> page -> data -> results
-        results = data.get('store', {}).get('page', {}).get('data', {}).get('results', [])
+        # 2. PARSE DATA
+        data_str = data_div.get('data-config')
+        if not data_str:
+            return {}
+            
+        data_content = json.loads(data_str)
+        results = data_content.get('store', {}).get('page', {}).get('data', {}).get('results', [])
         
         search_options = {}
         for item in results:
-            # We filter for 'Chords' (Type 200) to ensure they are readable text
-            # and exclude 'Official' or 'Pro' tabs that aren't scrapable
+            # Type 200 = Chords (The most reliable format for JARVIS)
             if item.get('type') == 'Chords' and 'tab_url' in item:
-                label = f"{item['song_name']} - {item['artist_name']} ({item['type']})"
+                label = f"{item['song_name']} - {item['artist_name']} (Chords)"
                 search_options[label] = item['tab_url']
-                
+        
         return search_options
+        
     except Exception as e:
-        st.error(f"Scraper Error: {e}")
+        # This prevents the "NoneType" crash you just saw
+        st.error(f"Search temporary unavailable. Details: {e}")
         return {}
 
 def scrape_ug_details(url):
